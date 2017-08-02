@@ -157,6 +157,12 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
         }
     }
 
+    protected void checkRootItem(MenuItem item) {
+        if (!getMenuItems().contains(item)) {
+            throw new IllegalArgumentException("MenuItem is not a root item");
+        }
+    }
+
     @Override
     public MenuItem createMenuItem(String id) {
         return createMenuItem(id, null, null, null);
@@ -211,6 +217,15 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
 
     protected void unregisterItem(MenuItem menuItem) {
         allItemsIds.remove(menuItem.getId());
+        if (menuItem.hasChildren()) {
+            for (MenuItem item : menuItem.getChildren()) {
+                if (item.hasChildren()) {
+                    unregisterItem(item);
+                } else {
+                    allItemsIds.remove(item.getId());
+                }
+            }
+        }
     }
 
     @Override
@@ -229,6 +244,7 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
     public void removeMenuItem(MenuItem menuItem) {
         checkNotNullArgument(menuItem);
         checkItemOwner(menuItem);
+        checkRootItem(menuItem);
 
         component.removeMenuItem(((MenuItemImpl) menuItem).getDelegateItem());
         unregisterItem(menuItem);
