@@ -209,11 +209,7 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
         allItemsIds.put(menuItem.getId(), menuItem);
         if (menuItem.hasChildren()) {
             for (MenuItem item : menuItem.getChildren()) {
-                if (item.hasChildren()) {
-                    registerMenuItem(item);
-                } else {
-                    allItemsIds.put(item.getId(), item);
-                }
+                registerMenuItem(item);
             }
         }
     }
@@ -222,11 +218,7 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
         allItemsIds.remove(menuItem.getId());
         if (menuItem.hasChildren()) {
             for (MenuItem item : menuItem.getChildren()) {
-                if (item.hasChildren()) {
-                    unregisterItem(item);
-                } else {
-                    allItemsIds.remove(item.getId());
-                }
+                unregisterItem(item);
             }
         }
     }
@@ -248,7 +240,7 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
         checkNotNullArgument(menuItem);
         checkItemOwner(menuItem);
 
-        if(getMenuItems().contains(menuItem)){
+        if (getMenuItems().contains(menuItem)) {
             unregisterItem(menuItem);
         }
 
@@ -490,7 +482,7 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
             checkNotNullArgument(menuItem);
             menu.checkItemOwner(menuItem);
 
-            if(getChildren().contains(menuItem)){
+            if (getChildren().contains(menuItem)) {
                 menu.unregisterItem(menuItem);
             }
 
