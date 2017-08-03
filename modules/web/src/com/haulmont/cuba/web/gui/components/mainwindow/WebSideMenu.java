@@ -157,12 +157,6 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
         }
     }
 
-    protected void checkRootItem(List<MenuItem> rootList, MenuItem item) {
-        if (!rootList.contains(item)) {
-            throw new IllegalArgumentException("MenuItem is not a root item");
-        }
-    }
-
     @Override
     public MenuItem createMenuItem(String id) {
         return createMenuItem(id, null, null, null);
@@ -213,6 +207,15 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
 
     protected void registerMenuItem(MenuItem menuItem) {
         allItemsIds.put(menuItem.getId(), menuItem);
+        if (menuItem.hasChildren()) {
+            for (MenuItem item : menuItem.getChildren()) {
+                if (item.hasChildren()) {
+                    registerMenuItem(item);
+                } else {
+                    allItemsIds.put(item.getId(), item);
+                }
+            }
+        }
     }
 
     protected void unregisterItem(MenuItem menuItem) {
@@ -244,10 +247,12 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
     public void removeMenuItem(MenuItem menuItem) {
         checkNotNullArgument(menuItem);
         checkItemOwner(menuItem);
-        checkRootItem(getMenuItems(), menuItem);
+
+        if(getMenuItems().contains(menuItem)){
+            unregisterItem(menuItem);
+        }
 
         component.removeMenuItem(((MenuItemImpl) menuItem).getDelegateItem());
-        unregisterItem(menuItem);
     }
 
     @Override
@@ -483,12 +488,13 @@ public class WebSideMenu extends WebAbstractComponent<CubaSideMenu> implements S
         @Override
         public void removeChildItem(MenuItem menuItem) {
             checkNotNullArgument(menuItem);
-            menu.checkRootItem(getChildren(), menuItem);
             menu.checkItemOwner(menuItem);
 
-            delegateItem.removeChildItem(((MenuItemImpl) menuItem).getDelegateItem());
+            if(getChildren().contains(menuItem)){
+                menu.unregisterItem(menuItem);
+            }
 
-            menu.unregisterItem(menuItem);
+            delegateItem.removeChildItem(((MenuItemImpl) menuItem).getDelegateItem());
         }
 
         @Override
