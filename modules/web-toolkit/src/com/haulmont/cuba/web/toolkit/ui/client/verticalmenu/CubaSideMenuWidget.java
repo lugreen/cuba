@@ -45,6 +45,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
     protected MenuItemWidget selectedItem;
 
     public Consumer<String> menuItemClickHandler;
+    public Consumer<String> headerItemExpandHandler;
     public Function<String, Icon> menuItemIconSupplier;
 
     public boolean selectOnTrigger;
@@ -145,7 +146,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
         if (keyCode == 0) {
             keyCode = event.getNativeEvent().getCharCode();
         }
-        if (handleNavigation(keyCode,event.isControlKeyDown() || event.isMetaKeyDown(), event.isShiftKeyDown())) {
+        if (handleNavigation(keyCode, event.isControlKeyDown() || event.isMetaKeyDown(), event.isShiftKeyDown())) {
             event.preventDefault();
             event.stopPropagation();
         }
@@ -157,7 +158,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
         if (keyCode == 0) {
             keyCode = event.getNativeEvent().getCharCode();
         }
-        if (handleNavigation(keyCode,event.isControlKeyDown() || event.isMetaKeyDown(), event.isShiftKeyDown())) {
+        if (handleNavigation(keyCode, event.isControlKeyDown() || event.isMetaKeyDown(), event.isShiftKeyDown())) {
             event.preventDefault();
             event.stopPropagation();
         }
@@ -334,6 +335,12 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
         }
         if (menuItemClickHandler != null) {
             menuItemClickHandler.accept(item.getId());
+        }
+    }
+
+    protected void onHeaderItemExpandChanged(MenuItemWidget item) {
+        if (headerItemExpandHandler != null) {
+            headerItemExpandHandler.accept(item.getId());
         }
     }
 
@@ -567,6 +574,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
                 } else {
                     menu.setFocusedItem(this);
                     subMenu.triggerExpand();
+                    menu.onHeaderItemExpandChanged(this);
                 }
             }
         }
@@ -574,12 +582,14 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
         public void expand() {
             if (subMenu != null) {
                 subMenu.setExpanded(true);
+                menu.onHeaderItemExpandChanged(this);
             }
         }
 
         public void collapse() {
             if (subMenu != null) {
                 subMenu.setExpanded(false);
+                menu.onHeaderItemExpandChanged(this);
             }
         }
 
@@ -588,6 +598,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
                 menu.onMenuItemTriggered(this);
             } else {
                 subMenu.triggerExpand();
+                menu.onHeaderItemExpandChanged(this);
             }
         }
     }
@@ -613,8 +624,10 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
 
                 if (expanded) {
                     addStyleDependentName("open");
+                    menuItemWidget.addStyleDependentName("header-open");
                 } else {
                     removeStyleDependentName("open");
+                    menuItemWidget.removeStyleDependentName("header-open");
                 }
             }
         }

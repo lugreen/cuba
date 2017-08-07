@@ -121,6 +121,10 @@
     }
   }
 
+  .#{$primary-stylename}-item-header-open {
+
+  }
+
   .#{$primary-stylename}-item-action.#{$primary-stylename}-item-selected {
     background: if(is-dark-color($bg), darken($bg, 3%), lighten($bg, 5%));
 
