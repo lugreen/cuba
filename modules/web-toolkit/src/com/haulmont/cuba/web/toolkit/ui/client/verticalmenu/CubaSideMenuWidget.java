@@ -45,7 +45,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
     protected MenuItemWidget selectedItem;
 
     public Consumer<String> menuItemClickHandler;
-    public Consumer<String> headerItemExpandHandler;
+    public Consumer<Map<String, Object>> headerItemExpandHandler;
     public Function<String, Icon> menuItemIconSupplier;
 
     public boolean selectOnTrigger;
@@ -340,7 +340,10 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
 
     protected void onHeaderItemExpandChanged(MenuItemWidget item) {
         if (headerItemExpandHandler != null) {
-            headerItemExpandHandler.accept(item.getId());
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", item.getId());
+            map.put("expanded", item.getSubMenu().isExpanded());
+            headerItemExpandHandler.accept(map);
         }
     }
 

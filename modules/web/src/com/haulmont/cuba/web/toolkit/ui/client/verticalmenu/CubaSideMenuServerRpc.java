@@ -21,5 +21,5 @@ import com.vaadin.shared.communication.ServerRpc;
 public interface CubaSideMenuServerRpc extends ServerRpc {
     void menuItemTriggered(String itemId);
 
-    void headerItemExpandChanged(String itemId);
+    void headerItemExpandChanged(String itemId, boolean expanded);
 }

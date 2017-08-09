@@ -87,9 +87,9 @@ public class CubaSideMenu extends AbstractComponent implements Component.Focusab
             }
 
             @Override
-            public void headerItemExpandChanged(String itemId) {
+            public void headerItemExpandChanged(String itemId, boolean expanded) {
                 MenuItem menuItem = menuItemIdMapper.get(itemId);
-                menuItem.expanded = !menuItem.isExpanded();
+                menuItem.expanded = expanded;
             }
         };
         registerRpc(menuRpc);

@@ -68,8 +68,9 @@ public class CubaSideMenuConnector extends AbstractComponentConnector {
             String resourceUrl = getResourceUrl(iconId);
             return getConnection().getIcon(resourceUrl);
         };
-        getWidget().headerItemExpandHandler = itemId ->
-                getRpcProxy(CubaSideMenuServerRpc.class).headerItemExpandChanged(itemId);
+        getWidget().headerItemExpandHandler = map ->
+                getRpcProxy(CubaSideMenuServerRpc.class).headerItemExpandChanged(
+                        String.valueOf(map.get("id")), Boolean.valueOf(String.valueOf(map.get("expanded"))));
     }
 
     @Override
