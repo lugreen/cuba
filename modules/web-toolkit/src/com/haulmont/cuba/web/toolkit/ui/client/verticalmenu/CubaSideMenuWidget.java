@@ -30,6 +30,7 @@ import elemental.json.JsonArray;
 import elemental.json.JsonObject;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -45,7 +46,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
     protected MenuItemWidget selectedItem;
 
     public Consumer<String> menuItemClickHandler;
-    public Consumer<Map<String, Object>> headerItemExpandHandler;
+    public BiConsumer<String, Boolean> headerItemExpandHandler;
     public Function<String, Icon> menuItemIconSupplier;
 
     public boolean selectOnTrigger;
@@ -340,10 +341,7 @@ public class CubaSideMenuWidget extends FocusableFlowPanel
 
     protected void onHeaderItemExpandChanged(MenuItemWidget item) {
         if (headerItemExpandHandler != null) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", item.getId());
-            map.put("expanded", item.getSubMenu().isExpanded());
-            headerItemExpandHandler.accept(map);
+            headerItemExpandHandler.accept(item.getId(), item.getSubMenu().isExpanded());
         }
     }
 
