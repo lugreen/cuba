@@ -75,6 +75,14 @@ public class CubaUserAuthenticationProvider implements AuthenticationProvider, S
             try {
                 session = loginService.login(login, passwordEncryption.getPlainHash((String) token.getCredentials()), request.getLocale());
                 if (!session.isSpecificPermitted("cuba.restApi.enabled")) {
+                    try {
+                        AppContext.withSecurityContext(new SecurityContext(session), () -> {
+                            loginService.logout();
+                        });
+                    } catch (Exception e) {
+                        log.error("Unable to logout", e);
+                    }
+
                     throw new BadCredentialsException("User is not allowed to use the REST API");
                 }
             } catch (LoginException e) {

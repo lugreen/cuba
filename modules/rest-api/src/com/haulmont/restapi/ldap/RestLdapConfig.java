@@ -20,6 +20,7 @@ import com.haulmont.cuba.core.config.Config;
 import com.haulmont.cuba.core.config.Property;
 import com.haulmont.cuba.core.config.Source;
 import com.haulmont.cuba.core.config.SourceType;
+import com.haulmont.cuba.core.config.defaults.DefaultBoolean;
 import com.haulmont.cuba.core.config.defaults.DefaultString;
 import com.haulmont.cuba.core.config.type.CommaSeparatedStringListTypeFactory;
 import com.haulmont.cuba.core.config.type.Factory;
@@ -28,7 +29,8 @@ import java.util.List;
 
 @Source(type = SourceType.APP)
 public interface RestLdapConfig extends Config {
-    @Property("cuba.rest.ldapEnabled")
+    @Property("cuba.rest.ldap.enabled")
+    @DefaultBoolean(false)
     boolean getLdapEnabled();
 
     // todo move cuba.web.ldap properties to cuba.ldap ?

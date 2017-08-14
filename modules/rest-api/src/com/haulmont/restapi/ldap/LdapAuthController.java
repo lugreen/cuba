@@ -17,30 +17,43 @@
 package com.haulmont.restapi.ldap;
 
 import com.haulmont.cuba.core.global.Configuration;
-import org.apache.commons.lang.NotImplementedException;
+import com.haulmont.cuba.security.app.LoginService;
+import com.haulmont.restapi.auth.OAuthTokenIssuer;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.ldap.core.LdapTemplate;
 import org.springframework.ldap.core.support.LdapContextSource;
 import org.springframework.ldap.filter.AndFilter;
 import org.springframework.ldap.filter.EqualsFilter;
+import org.springframework.ldap.support.LdapUtils;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
+import org.springframework.security.oauth2.common.exceptions.ClientAuthenticationException;
+import org.springframework.security.oauth2.common.exceptions.InvalidGrantException;
+import org.springframework.security.oauth2.common.exceptions.OAuth2Exception;
+import org.springframework.security.oauth2.common.util.OAuth2Utils;
+import org.springframework.security.oauth2.provider.error.DefaultWebResponseExceptionTranslator;
+import org.springframework.security.oauth2.provider.error.WebResponseExceptionTranslator;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
 import java.security.Principal;
 import java.util.*;
 
 @RestController
 public class LdapAuthController implements InitializingBean {
+
+    private final Logger log = LoggerFactory.getLogger(LdapAuthController.class);
 
     protected LdapTemplate defaultLdapTemplate;
     protected LdapContextSource defaultLdapContextSource;
@@ -51,56 +64,125 @@ public class LdapAuthController implements InitializingBean {
 
     @Inject
     protected Configuration configuration;
+    @Inject
+    protected OAuthTokenIssuer oAuthTokenIssuer;
+    @Inject
+    protected LoginService loginService;
 
     protected Set<HttpMethod> allowedRequestMethods = Collections.singleton(HttpMethod.POST);
 
-    @RequestMapping(value = "/ldap/token", method= RequestMethod.GET)
-    public ResponseEntity<OAuth2AccessToken> getAccessToken(Principal principal, @RequestParam
-            Map<String, String> parameters) throws HttpRequestMethodNotSupportedException {
+    protected WebResponseExceptionTranslator providerExceptionHandler = new DefaultWebResponseExceptionTranslator();
+
+    @RequestMapping(value = "/v2/ldap/token", method = RequestMethod.GET)
+    public ResponseEntity<OAuth2AccessToken> getAccessToken(Principal principal,
+                                                            @RequestParam Map<String, String> parameters,
+                                                            HttpServletRequest request)
+            throws HttpRequestMethodNotSupportedException {
         if (!allowedRequestMethods.contains(HttpMethod.GET)) {
             throw new HttpRequestMethodNotSupportedException("GET");
         }
 
-        return postAccessToken(principal, parameters);
+        return postAccessToken(principal, parameters, request);
     }
 
-    @RequestMapping(value = "/ldap/token", method = RequestMethod.POST)
+    @RequestMapping(value = "/v2/ldap/token", method = RequestMethod.POST)
     public ResponseEntity<OAuth2AccessToken> postAccessToken(Principal principal,
-                                                             @RequestParam Map<String, String> parameters)
+                                                             @RequestParam Map<String, String> parameters,
+                                                             HttpServletRequest request)
             throws HttpRequestMethodNotSupportedException {
+
+        if (!configuration.getConfig(RestLdapConfig.class).getLdapEnabled()) {
+            log.debug("LDAP authentication is disabled. Property cuba.rest.ldapEnabled is false");
+
+            throw new InvalidGrantException("LDAP is not supported");
+        }
 
         if (!(principal instanceof Authentication)) {
             throw new InsufficientAuthenticationException(
                     "There is no client authentication. Try adding an appropriate authentication filter.");
         }
 
-        // todo implement
-        throw new NotImplementedException();
+        String grantType = parameters.get(OAuth2Utils.GRANT_TYPE);
+        if (!"password".equals(grantType)) {
+            throw new InvalidGrantException("grant type not supported for ldap/token endpoint");
+        }
 
-        /*if (!ldapTemplate.authenticate(LdapUtils.emptyLdapName(), buildPersonFilter(login), password)) {
-            throw new LoginException(
-                    messages.formatMessage(LdapAuthProvider.class, "LoginException.InvalidLoginOrPassword", messagesLocale, login)
-            );
-        }*/
+        String username = parameters.get("username");
+        String ipAddress = request.getRemoteAddr();
+
+        checkBruteForceProtection(username, ipAddress);
+
+        String password = parameters.get("password");
+
+        if (!ldapTemplate.authenticate(LdapUtils.emptyLdapName(), buildPersonFilter(username), password)) {
+            log.info("REST API authentication failed: {} {}", username, ipAddress);
+            throw new BadCredentialsException("Bad credentials");
+        }
+
+        OAuthTokenIssuer.OAuth2AccessTokenResult tokenResult =
+                oAuthTokenIssuer.issueToken(username, request.getLocale(), Collections.emptyMap());
+
+        return ResponseEntity.ok(tokenResult.getAccessToken());
+    }
+
+    protected void checkBruteForceProtection(String login, String ipAddress) {
+        if (loginService.isBruteForceProtectionEnabled()) {
+            if (loginService.loginAttemptsLeft(login, ipAddress) <= 0) {
+                log.info("Blocked user login attempt: login={}, ip={}", login, ipAddress);
+                throw new LockedException("User temporarily blocked");
+            }
+        }
     }
 
     @Override
     public void afterPropertiesSet() throws Exception {
         RestLdapConfig ldapConfig = configuration.getConfig(RestLdapConfig.class);
 
-        checkRequiredConfigProperties(ldapConfig);
+        if (ldapConfig.getLdapEnabled()) {
+            checkRequiredConfigProperties(ldapConfig);
 
-        defaultLdapContextSource = createLdapContextSource(ldapConfig);
-        defaultLdapTemplate = createLdapTemplate(defaultLdapContextSource);
-        if (ldapContextSource == null) {
-            ldapContextSource = defaultLdapContextSource;
+            defaultLdapContextSource = createLdapContextSource(ldapConfig);
+            defaultLdapTemplate = createLdapTemplate(defaultLdapContextSource);
+            if (ldapContextSource == null) {
+                ldapContextSource = defaultLdapContextSource;
+            }
+            if (ldapTemplate == null) {
+                ldapTemplate = defaultLdapTemplate;
+            }
+            if (ldapUserLoginField == null) {
+                ldapUserLoginField = ldapConfig.getLdapUserLoginField();
+            }
         }
-        if (ldapTemplate == null) {
-            ldapTemplate = defaultLdapTemplate;
-        }
-        if (ldapUserLoginField == null) {
-            ldapUserLoginField = ldapConfig.getLdapUserLoginField();
-        }
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<OAuth2Exception> handleException(Exception e) throws Exception {
+        log.error("Exception in LDAP auth controller", e);
+        return new ResponseEntity<>(new OAuth2Exception("Server error", e), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<OAuth2Exception> handleBadCredentialsException(BadCredentialsException e) throws Exception {
+        return getExceptionTranslator().translate(e);
+    }
+
+    @ExceptionHandler(ClientAuthenticationException.class)
+    public ResponseEntity<OAuth2Exception> handleClientAuthenticationException(ClientAuthenticationException e) throws Exception {
+        return getExceptionTranslator().translate(e);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<OAuth2Exception> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException e) throws Exception {
+        log.info("Handling error: {}, {}", e.getClass().getSimpleName(), e.getMessage());
+        return getExceptionTranslator().translate(e);
+    }
+
+    public WebResponseExceptionTranslator getExceptionTranslator() {
+        return providerExceptionHandler;
+    }
+
+    public void setExceptionTranslator(WebResponseExceptionTranslator providerExceptionHandler) {
+        this.providerExceptionHandler = providerExceptionHandler;
     }
 
     protected LdapTemplate createLdapTemplate(LdapContextSource ldapContextSource) {
