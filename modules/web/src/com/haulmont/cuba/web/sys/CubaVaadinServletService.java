@@ -189,40 +189,68 @@ public class CubaVaadinServletService extends VaadinServletService {
         return cubaRequestHandlers;
     }
 
-    protected static class CubaWebJarsHandler extends SynchronizedRequestHandler {
+    protected static class CubaWebJarsHandler implements RequestHandler {
 
         private final Logger log = LoggerFactory.getLogger(CubaWebJarsHandler.class);
 
-        private static boolean isDirectoryRequest(String uri) {
+        protected static boolean isDirectoryRequest(String uri) {
             return uri.endsWith("/");
         }
 
+        protected int getCacheTime(String filename) {
+            if (filename.contains(".nocache.")) {
+                return 0;
+            }
+            if (filename.contains(".cache.")) {
+                return 60 * 60 * 24 * 365;
+            }
+            return 60 * 60;
+        }
+
         @Override
-        public boolean synchronizedHandleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
+        public boolean handleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
             String path = request.getPathInfo();
 
             if (StringUtils.isNotEmpty(path) && !path.contains("webjars/"))
                 return false;
 
-            String webjarsResourceURI = "/META-INF/resources" + path.replaceFirst(request.getContextPath(), "");
-            log.info("Webjars resource requested: {0}", webjarsResourceURI);
+            String resourceUri = "/META-INF/resources" + path;
+            log.trace("WebJars resource requested: {}", resourceUri);
 
-            if (isDirectoryRequest(webjarsResourceURI)) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+            if (isDirectoryRequest(resourceUri)) {
+                String msg = String.format("Directory loading is forbidden: %s", path);
+
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, msg);
+                log.error(msg);
+
                 return false;
             }
 
-            InputStream inputStream = this.getClass().getResourceAsStream(webjarsResourceURI);
+            InputStream inputStream = this.getClass().getResourceAsStream(resourceUri);
             if (inputStream != null) {
                 try {
                     response.setContentType("application/octet-stream");
+
+                    String cacheControl = "public, max-age=0, must-revalidate";
+                    int resourceCacheTime = getCacheTime(path.substring(path.lastIndexOf("/")));
+                    if (resourceCacheTime > 0) {
+                        cacheControl = "max-age=" + String.valueOf(resourceCacheTime);
+                    }
+                    response.setHeader("Cache-Control", cacheControl);
+                    response.setDateHeader("Expires", System.currentTimeMillis() + (resourceCacheTime * 1000));
+
                     copy(inputStream, response.getOutputStream());
+
                     return true;
                 } finally {
                     inputStream.close();
                 }
             } else {
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found");
+                String msg = String.format("Request WebJar resource is not found: %s", path);
+
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, msg);
+                log.error(msg);
+
                 return false;
             }
         }
