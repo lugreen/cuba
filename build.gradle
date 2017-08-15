@@ -576,6 +576,9 @@ configure(webModule) {
             exclude(group: 'com.vaadin', module: 'vaadin-sass-compiler')
         }
 
+        /* WebJars dependencies */
+        compile(bom['org.webjars:jquery'])
+
         provided(bom['org.apache.tomcat:tomcat-servlet-api'])
 
         themes(bom['com.vaadin:vaadin-themes'])

@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Locale;
 
 import static com.google.common.hash.Hashing.md5;
+import static org.apache.commons.io.IOUtils.copy;
 
 public class CubaVaadinServletService extends VaadinServletService {
 
@@ -183,7 +184,48 @@ public class CubaVaadinServletService extends VaadinServletService {
             }
         }
 
+        cubaRequestHandlers.add(new CubaWebJarsHandler());
+
         return cubaRequestHandlers;
+    }
+
+    protected static class CubaWebJarsHandler extends SynchronizedRequestHandler {
+
+        private final Logger log = LoggerFactory.getLogger(CubaWebJarsHandler.class);
+
+        private static boolean isDirectoryRequest(String uri) {
+            return uri.endsWith("/");
+        }
+
+        @Override
+        public boolean synchronizedHandleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
+            String path = request.getPathInfo();
+
+            if (StringUtils.isNotEmpty(path) && !path.contains("webjars/"))
+                return false;
+
+            String webjarsResourceURI = "/META-INF/resources" + path.replaceFirst(request.getContextPath(), "");
+            log.info("Webjars resource requested: {0}", webjarsResourceURI);
+
+            if (isDirectoryRequest(webjarsResourceURI)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                return false;
+            }
+
+            InputStream inputStream = this.getClass().getResourceAsStream(webjarsResourceURI);
+            if (inputStream != null) {
+                try {
+                    response.setContentType("application/octet-stream");
+                    copy(inputStream, response.getOutputStream());
+                    return true;
+                } finally {
+                    inputStream.close();
+                }
+            } else {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found");
+                return false;
+            }
+        }
     }
 
     // Add ability to load JS and CSS resources from VAADIN directory
