@@ -49,6 +49,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -193,8 +195,126 @@ public class CubaVaadinServletService extends VaadinServletService {
 
         private final Logger log = LoggerFactory.getLogger(CubaWebJarsHandler.class);
 
-        protected static boolean isDirectoryRequest(String uri) {
-            return uri.endsWith("/");
+        @Override
+        public boolean handleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
+            String path = request.getPathInfo();
+
+            if (StringUtils.isEmpty(path) || StringUtils.isNotEmpty(path) && !path.startsWith("/webjars/"))
+                return false;
+
+            log.trace("WebJar resource requested: {}", path);
+
+            String errorMessage = checkResourcePath(path);
+            if (StringUtils.isNotEmpty(errorMessage)) {
+                log.error(errorMessage);
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, errorMessage);
+                return false;
+            }
+
+            URL resourceUrl = getStaticResourceUrl(path);
+
+            if (resourceUrl == null) {
+                resourceUrl = getClassPathResourceUrl(path);
+            }
+
+            if (resourceUrl == null) {
+                String msg = String.format("Requested WebJar resource is not found: %s", path);
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, msg);
+                log.error(msg);
+                return false;
+            }
+
+            String resourceName = getResourceName(path);
+            String mimeType = VaadinServlet.getCurrent().getServletContext().getMimeType(resourceName);
+            response.setContentType(mimeType != null ? mimeType : "application/octet-stream");
+
+            String cacheControl = "public, max-age=0, must-revalidate";
+            int resourceCacheTime = getCacheTime(resourceName);
+            if (resourceCacheTime > 0) {
+                cacheControl = "max-age=" + String.valueOf(resourceCacheTime);
+            }
+            response.setHeader("Cache-Control", cacheControl);
+            response.setDateHeader("Expires", System.currentTimeMillis() + (resourceCacheTime * 1000));
+
+            InputStream inputStream = null;
+            try {
+                URLConnection connection = resourceUrl.openConnection();
+                long lastModifiedTime = connection.getLastModified();
+                // Remove milliseconds to avoid comparison problems (milliseconds
+                // are not returned by the browser in the "If-Modified-Since"
+                // header).
+                lastModifiedTime = lastModifiedTime - lastModifiedTime % 1000;
+                response.setDateHeader("Last-Modified", lastModifiedTime);
+
+                if (browserHasNewestVersion(request, lastModifiedTime)) {
+                    response.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+                    return true;
+                }
+
+                inputStream = connection.getInputStream();
+
+                copy(inputStream, response.getOutputStream());
+
+                return true;
+            } finally {
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            }
+        }
+
+        protected String getResourceName(String webjarsResourceURI) {
+            String[] tokens = webjarsResourceURI.split("/");
+            return tokens[tokens.length - 1];
+        }
+
+        // copy-pasted from VaadinServlet
+        protected boolean browserHasNewestVersion(VaadinRequest request, long resourceLastModifiedTimestamp) {
+            if (resourceLastModifiedTimestamp < 1) {
+                // We do not know when it was modified so the browser cannot have an
+                // up-to-date version
+                return false;
+            }
+        /*
+         * The browser can request the resource conditionally using an
+         * If-Modified-Since header. Check this against the last modification
+         * time.
+         */
+            try {
+                // If-Modified-Since represents the timestamp of the version cached
+                // in the browser
+                long headerIfModifiedSince = request
+                        .getDateHeader("If-Modified-Since");
+
+                if (headerIfModifiedSince >= resourceLastModifiedTimestamp) {
+                    // Browser has this an up-to-date version of the resource
+                    return true;
+                }
+            } catch (Exception e) {
+                // Failed to parse header. Fail silently - the browser does not have
+                // an up-to-date version in its cache.
+            }
+            return false;
+        }
+
+        protected URL getStaticResourceUrl(String path) throws IOException {
+            String staticPath = "/VAADIN/" + path;
+
+            URL resourceUrl = VaadinServlet.getCurrent().getServletContext().getResource(staticPath);
+
+            if (resourceUrl != null) {
+                log.trace("Overridden version of WebJar resource found: {}", staticPath);
+            }
+
+            return resourceUrl;
+        }
+
+        protected URL getClassPathResourceUrl(String path) {
+            String classpathPath = "/META-INF/resources" + path;
+
+            log.trace("Load WebJar resource from classpath: {}", classpathPath);
+
+            return this.getClass().getResource(classpathPath);
         }
 
         protected int getCacheTime(String filename) {
@@ -207,52 +327,16 @@ public class CubaVaadinServletService extends VaadinServletService {
             return 60 * 60;
         }
 
-        @Override
-        public boolean handleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
-            String path = request.getPathInfo();
-
-            if (StringUtils.isNotEmpty(path) && !path.contains("webjars/"))
-                return false;
-
-            String resourceUri = "/META-INF/resources" + path;
-            log.trace("WebJars resource requested: {}", resourceUri);
-
-            if (isDirectoryRequest(resourceUri)) {
-                String msg = String.format("Directory loading is forbidden: %s", path);
-
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, msg);
-                log.error(msg);
-
-                return false;
+        protected String checkResourcePath(String url) {
+            if (url.endsWith("/")) {
+                return String.format("Directory loading is forbidden: %s", url);
             }
 
-            InputStream inputStream = this.getClass().getResourceAsStream(resourceUri);
-            if (inputStream != null) {
-                try {
-                    response.setContentType("application/octet-stream");
-
-                    String cacheControl = "public, max-age=0, must-revalidate";
-                    int resourceCacheTime = getCacheTime(path.substring(path.lastIndexOf("/")));
-                    if (resourceCacheTime > 0) {
-                        cacheControl = "max-age=" + String.valueOf(resourceCacheTime);
-                    }
-                    response.setHeader("Cache-Control", cacheControl);
-                    response.setDateHeader("Expires", System.currentTimeMillis() + (resourceCacheTime * 1000));
-
-                    copy(inputStream, response.getOutputStream());
-
-                    return true;
-                } finally {
-                    inputStream.close();
-                }
-            } else {
-                String msg = String.format("Request WebJar resource is not found: %s", path);
-
-                response.sendError(HttpServletResponse.SC_NOT_FOUND, msg);
-                log.error(msg);
-
-                return false;
+            if (url.contains("/../")) {
+                return String.format("Loading WebJar resource with the upward path is forbidden: %s", url);
             }
+
+            return null;
         }
     }
 
