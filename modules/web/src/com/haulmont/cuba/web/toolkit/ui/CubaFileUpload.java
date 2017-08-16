@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Set;
 
 @JavaScript({
-        "vaadin://resources/jquery/jquery-ui.min.js",
+        "webjars/jquery-ui/1.12.1/jquery-ui.min.js",
         "vaadin://resources/jqueryfileupload/jquery.iframe-transport-9.12.1.min.js",
         "vaadin://resources/jqueryfileupload/jquery.fileupload-9.12.1.min.js"
 })

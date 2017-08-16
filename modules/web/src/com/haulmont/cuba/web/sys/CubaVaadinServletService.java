@@ -18,10 +18,7 @@
 package com.haulmont.cuba.web.sys;
 
 import com.google.common.hash.HashCode;
-import com.haulmont.cuba.core.global.AppBeans;
-import com.haulmont.cuba.core.global.Configuration;
-import com.haulmont.cuba.core.global.GlobalConfig;
-import com.haulmont.cuba.core.global.Messages;
+import com.haulmont.cuba.core.global.*;
 import com.haulmont.cuba.core.sys.AppContext;
 import com.haulmont.cuba.security.global.UserSession;
 import com.haulmont.cuba.web.App;
@@ -192,6 +189,8 @@ public class CubaVaadinServletService extends VaadinServletService {
     }
 
     protected static class CubaWebJarsHandler implements RequestHandler {
+        protected static final String APP_PUBLISHED_PREFIX = "/APP/PUBLISHED";
+        protected static final String WEBJARS_PATH_PREFIX = "/webjars/";
 
         private final Logger log = LoggerFactory.getLogger(CubaWebJarsHandler.class);
 
@@ -199,8 +198,11 @@ public class CubaVaadinServletService extends VaadinServletService {
         public boolean handleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
             String path = request.getPathInfo();
 
-            if (StringUtils.isEmpty(path) || StringUtils.isNotEmpty(path) && !path.startsWith("/webjars/"))
+            if (StringUtils.isEmpty(path) || StringUtils.isNotEmpty(path) && !path.startsWith(WEBJARS_PATH_PREFIX) &&
+                    !path.startsWith(APP_PUBLISHED_PREFIX + WEBJARS_PATH_PREFIX))
                 return false;
+
+            path = path.replace(APP_PUBLISHED_PREFIX, "");
 
             log.trace("WebJar resource requested: {}", path);
 
@@ -226,7 +228,7 @@ public class CubaVaadinServletService extends VaadinServletService {
 
             String resourceName = getResourceName(path);
             String mimeType = VaadinServlet.getCurrent().getServletContext().getMimeType(resourceName);
-            response.setContentType(mimeType != null ? mimeType : "application/octet-stream");
+            response.setContentType(mimeType != null ? mimeType : FileTypesHelper.DEFAULT_MIME_TYPE);
 
             String cacheControl = "public, max-age=0, must-revalidate";
             int resourceCacheTime = getCacheTime(resourceName);
