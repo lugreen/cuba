@@ -579,6 +579,7 @@ configure(webModule) {
         /* WebJar dependencies */
         compile(bom['org.webjars:jquery'])
         compile(bom['org.webjars:jquery-ui'])
+        compile(bom['org.webjars:jquery-fileupload'])
 
         provided(bom['org.apache.tomcat:tomcat-servlet-api'])
 

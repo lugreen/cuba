@@ -22,6 +22,7 @@ import com.haulmont.cuba.core.global.*;
 import com.haulmont.cuba.core.sys.AppContext;
 import com.haulmont.cuba.security.global.UserSession;
 import com.haulmont.cuba.web.App;
+import com.haulmont.cuba.web.AppUI;
 import com.haulmont.cuba.web.ScreenProfiler;
 import com.haulmont.cuba.web.WebConfig;
 import com.haulmont.cuba.web.auth.RequestContext;
@@ -433,7 +434,12 @@ public class CubaVaadinServletService extends VaadinServletService {
 
     // Set security context to AppContext for normal UI requests
     protected static class CubaUidlRequestHandler extends UidlRequestHandler {
+        private final Logger log = LoggerFactory.getLogger(CubaUidlRequestHandler.class);
+
         protected ScreenProfiler profiler = AppBeans.get(ScreenProfiler.NAME);
+
+        protected static final String JAVASCRIPT_EXTENSION = ".js";
+        protected static final String CSS_EXTENSION = ".css";
 
         @Override
         protected UidlWriter createUidlWriter() {
@@ -449,6 +455,51 @@ public class CubaVaadinServletService extends VaadinServletService {
                         writer.write(String.format(", \"profilerMarker\": \"%s\", \"profilerEventTs\": \"%s\", \"profilerServerTime\": %s",
                                 profilerMarker, lastRequestTimestamp, System.currentTimeMillis() - lastRequestTimestamp));
                     }
+                }
+
+                @SuppressWarnings("deprecation")
+                @Override
+                protected void handleAdditionalDependencies(List<Class<? extends ClientConnector>> newConnectorTypes,
+                                                            List<String> scriptDependencies, List<String> styleDependencies) {
+                    LegacyCommunicationManager manager = AppUI.getCurrent().getSession().getCommunicationManager();
+
+                    for (Class<? extends ClientConnector> connector : newConnectorTypes) {
+                        WebJarResource webJarResource = connector.getAnnotation(WebJarResource.class);
+                        if (webJarResource == null)
+                            continue;
+
+                        for (String uri : webJarResource.value()) {
+                            uri = processResourceUri(uri);
+
+                            if (uri.endsWith(JAVASCRIPT_EXTENSION)) {
+                                scriptDependencies.add(manager.registerDependency(uri, connector));
+                            }
+
+                            if (uri.endsWith(CSS_EXTENSION)) {
+                                styleDependencies.add(manager.registerDependency(uri, connector));
+                            }
+                        }
+                    }
+                }
+
+                protected String processResourceUri(String uri) {
+                    int propertyFirstIndex = uri.indexOf("${");
+                    if (propertyFirstIndex == -1) {
+                        return uri;
+                    }
+
+                    int propertyLastIndex = uri.indexOf("}");
+                    String propertyName = uri.substring(propertyFirstIndex + 2, propertyLastIndex);
+
+                    String webJarVersion = AppContext.getProperty(propertyName);
+
+                    if (StringUtils.isEmpty(webJarVersion)) {
+                        String msg = String.format("Could not load WebJar version property value: %s", propertyName);
+                        log.error(msg);
+                        throw new RuntimeException(msg);
+                    }
+
+                    return uri.replace("${" + propertyName + "}", webJarVersion);
                 }
             };
         }
