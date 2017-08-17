@@ -33,8 +33,6 @@ public interface RestLdapConfig extends Config {
     @DefaultBoolean(false)
     boolean getLdapEnabled();
 
-    // todo move cuba.web.ldap properties to cuba.ldap ?
-
     @Property("cuba.rest.ldap.urls")
     @Factory(factory = CommaSeparatedStringListTypeFactory.class)
     List<String> getLdapUrls();
