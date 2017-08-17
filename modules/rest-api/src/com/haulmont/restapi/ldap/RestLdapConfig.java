@@ -35,23 +35,23 @@ public interface RestLdapConfig extends Config {
 
     // todo move cuba.web.ldap properties to cuba.ldap ?
 
-    @Property("cuba.web.ldap.urls")
+    @Property("cuba.rest.ldap.urls")
     @Factory(factory = CommaSeparatedStringListTypeFactory.class)
     List<String> getLdapUrls();
 
-    @Property("cuba.web.ldap.base")
+    @Property("cuba.rest.ldap.base")
     String getLdapBase();
 
-    @Property("cuba.web.ldap.user")
+    @Property("cuba.rest.ldap.user")
     String getLdapUser();
 
     /**
      * @return Field of LDAP object for user login matching.
      */
-    @Property("cuba.web.ldap.userLoginField")
+    @Property("cuba.rest.ldap.userLoginField")
     @DefaultString("sAMAccountName")
     String getLdapUserLoginField();
 
-    @Property("cuba.web.ldap.password")
+    @Property("cuba.rest.ldap.password")
     String getLdapPassword();
 }
