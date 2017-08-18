@@ -184,26 +184,30 @@ public class CubaVaadinServletService extends VaadinServletService {
             }
         }
 
-        cubaRequestHandlers.add(new CubaWebJarsHandler());
+        cubaRequestHandlers.add(new CubaWebJarsHandler(getServlet().getServletContext()));
 
         return cubaRequestHandlers;
     }
 
+    // Add ability to serve web resources from WebJars
     protected static class CubaWebJarsHandler implements RequestHandler {
-        protected static final String APP_PUBLISHED_PREFIX = "/APP/PUBLISHED";
-        protected static final String WEBJARS_PATH_PREFIX = "/webjars/";
+        protected static final String WEBJARS_PREFIX = "/webjars/";
+        protected static final String VAADIN_PREFIX = "/VAADIN/";
 
         private final Logger log = LoggerFactory.getLogger(CubaWebJarsHandler.class);
+
+        protected ServletContext servletContext;
+
+        public CubaWebJarsHandler(ServletContext servletContext) {
+            this.servletContext = servletContext;
+        }
 
         @Override
         public boolean handleRequest(VaadinSession session, VaadinRequest request, VaadinResponse response) throws IOException {
             String path = request.getPathInfo();
 
-            if (StringUtils.isEmpty(path) || StringUtils.isNotEmpty(path) && !path.startsWith(WEBJARS_PATH_PREFIX) &&
-                    !path.startsWith(APP_PUBLISHED_PREFIX + WEBJARS_PATH_PREFIX))
+            if (StringUtils.isEmpty(path) || StringUtils.isNotEmpty(path) && !path.startsWith(WEBJARS_PREFIX))
                 return false;
-
-            path = path.replace(APP_PUBLISHED_PREFIX, "");
 
             log.trace("WebJar resource requested: {}", path);
 
@@ -228,7 +232,7 @@ public class CubaVaadinServletService extends VaadinServletService {
             }
 
             String resourceName = getResourceName(path);
-            String mimeType = VaadinServlet.getCurrent().getServletContext().getMimeType(resourceName);
+            String mimeType = servletContext.getMimeType(resourceName);
             response.setContentType(mimeType != null ? mimeType : FileTypesHelper.DEFAULT_MIME_TYPE);
 
             String cacheControl = "public, max-age=0, must-revalidate";
@@ -301,9 +305,9 @@ public class CubaVaadinServletService extends VaadinServletService {
         }
 
         protected URL getStaticResourceUrl(String path) throws IOException {
-            String staticPath = "/VAADIN/" + path;
+            String staticPath = VAADIN_PREFIX + path;
 
-            URL resourceUrl = VaadinServlet.getCurrent().getServletContext().getResource(staticPath);
+            URL resourceUrl = servletContext.getResource(staticPath);
 
             if (resourceUrl != null) {
                 log.trace("Overridden version of WebJar resource found: {}", staticPath);
@@ -440,6 +444,7 @@ public class CubaVaadinServletService extends VaadinServletService {
 
         protected static final String JAVASCRIPT_EXTENSION = ".js";
         protected static final String CSS_EXTENSION = ".css";
+        protected static final String WEBJARS_PREFIX = "webjars/";
 
         @Override
         protected UidlWriter createUidlWriter() {
@@ -485,13 +490,27 @@ public class CubaVaadinServletService extends VaadinServletService {
                 protected String processResourceUri(String uri) {
                     int propertyFirstIndex = uri.indexOf("${");
                     if (propertyFirstIndex == -1) {
-                        return uri;
+                        return WEBJARS_PREFIX + uri;
                     }
 
                     int propertyLastIndex = uri.indexOf("}");
+                    if (propertyLastIndex == -1) {
+                        String errorMessage = String.format("Malformed URL of a WebJar resource: %s", uri);
+                        log.error(errorMessage);
+                        throw new RuntimeException(errorMessage);
+                    }
+
+                    String webJarVersion = StringUtils.EMPTY;
                     String propertyName = uri.substring(propertyFirstIndex + 2, propertyLastIndex);
 
-                    String webJarVersion = AppContext.getProperty(propertyName);
+                    int defaultVersionIdx = propertyName.indexOf("?:");
+                    if (defaultVersionIdx != -1) {
+                        webJarVersion = propertyName.substring(defaultVersionIdx + 2);
+                    }
+
+                    if (StringUtils.isEmpty(webJarVersion)) {
+                        webJarVersion = AppContext.getProperty(propertyName);
+                    }
 
                     if (StringUtils.isEmpty(webJarVersion)) {
                         String msg = String.format("Could not load WebJar version property value: %s", propertyName);
@@ -499,7 +518,7 @@ public class CubaVaadinServletService extends VaadinServletService {
                         throw new RuntimeException(msg);
                     }
 
-                    return uri.replace("${" + propertyName + "}", webJarVersion);
+                    return WEBJARS_PREFIX + uri.replace("${" + propertyName + "}", webJarVersion);
                 }
             };
         }

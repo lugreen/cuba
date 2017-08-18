@@ -40,9 +40,9 @@ import java.util.Map;
 import java.util.Set;
 
 @WebJarResource({
-        "webjars/jquery-ui/1.12.1/jquery-ui.min.js",
-        "webjars/jquery-fileupload/9.12.1/jquery-fileupload.min.js",
-        "webjars/jquery-fileupload/9.12.1/jquery-fileupload.min.js"
+        "jquery-ui/1.12.1/jquery-ui.min.js",
+        "jquery-fileupload/9.12.1/jquery-fileupload.min.js",
+        "jquery-fileupload/9.12.1/jquery-fileupload.min.js"
 })
 public class CubaFileUpload extends CubaAbstractUploadComponent
         implements Component.Focusable, LegacyComponent {
