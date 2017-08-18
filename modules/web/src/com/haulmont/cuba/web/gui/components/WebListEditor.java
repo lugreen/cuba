@@ -146,8 +146,14 @@ public class WebListEditor extends WebAbstractField<WebListEditor.CubaListEditor
         if (newValue != null && !(newValue instanceof List)) {
             throw new IllegalArgumentException("Value type must be List");
         }
-        super.setValue(newValue);
-        delegate.setValue((List) newValue);
+
+        if (((List) newValue).isEmpty()) {
+            super.setValue(null);
+            delegate.setValue(null);
+        } else {
+            super.setValue(newValue);
+            delegate.setValue((List) newValue);
+        }
 
         Object oldValue = prevValue;
         if (!Objects.equals(oldValue, newValue)) {

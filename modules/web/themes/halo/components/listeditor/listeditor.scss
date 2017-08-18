@@ -129,6 +129,12 @@
     }
   }
 
+  .#{$primary-stylename}.v-customcomponent-error{
+    .v-textfield.v-textfield-readonly {
+      @include valo-textfield-error-style;
+    }
+  }
+
   .#{$primary-stylename}.v-readonly {
     .v-textfield.v-textfield-readonly {
       @include valo-textfield-readonly-style;
