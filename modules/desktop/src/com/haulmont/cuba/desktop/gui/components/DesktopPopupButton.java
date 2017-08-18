@@ -164,6 +164,17 @@ public class DesktopPopupButton extends DesktopAbstractActionsHolderComponent<JB
 
     @Override
     public void setMenuWidth(String width) {
+        // todo
+    }
+
+    @Override
+    public float getMenuWidth() {
+        return 0; // todo
+    }
+
+    @Override
+    public int getMenuWidthUnits() {
+        return 0; // todo
     }
 
     @Override

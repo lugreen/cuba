@@ -125,6 +125,16 @@ public class WebPopupButton extends WebAbstractComponent<CubaPopupButton>
     }
 
     @Override
+    public float getMenuWidth() {
+        return 0;// todo
+    }
+
+    @Override
+    public int getMenuWidthUnits() {
+        return 0;// todo
+    }
+
+    @Override
     public boolean isAutoClose() {
         return component.isAutoClose();
     }
@@ -303,7 +313,7 @@ public class WebPopupButton extends WebAbstractComponent<CubaPopupButton>
         return actionsPermissions;
     }
 
-    private class PopupActionWrapper implements Action {
+    protected class PopupActionWrapper implements Action {
 
         private Action action;
 
