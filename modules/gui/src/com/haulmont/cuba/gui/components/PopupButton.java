@@ -16,6 +16,12 @@
  */
 package com.haulmont.cuba.gui.components;
 
+import javax.annotation.Nullable;
+import java.util.EventObject;
+
+/**
+ * A {@link Button} with a popup. The popup can contain actions.
+ */
 public interface PopupButton extends Component.ActionsHolder, Component.HasCaption, Component.BelongToFrame,
         Component.HasIcon, Component.Focusable {
 
@@ -48,13 +54,13 @@ public interface PopupButton extends Component.ActionsHolder, Component.HasCapti
     int getMenuWidthUnits();
 
     /**
-     * @return whether to close menu automatically after action trigger or not
+     * @return whether to close menu automatically after action triggerring or not
      */
     boolean isAutoClose();
     /**
-     * Set menu automatic close mode.
+     * Set menu automatic close after option click.
      *
-     * @param autoClose whether to close menu automatically after action trigger or not
+     * @param autoClose whether to close menu automatically after action triggerring or not
      */
     void setAutoClose(boolean autoClose);
 
@@ -66,4 +72,82 @@ public interface PopupButton extends Component.ActionsHolder, Component.HasCapti
      * Return show icons for action buttons
      */
     boolean isShowActionIcons();
+
+    /**
+     * @return if sequential click on popup will toggle popup visibility
+     */
+    boolean isTogglePopupVisibilityOnClick();
+    /**
+     * Sets sequential click on popup will toggle popup visibility.
+     *
+     * @param togglePopupVisibilityOnClick true if sequential click on popup should toggle popup visibility
+     */
+    void setTogglePopupVisibilityOnClick(boolean togglePopupVisibilityOnClick);
+
+    /**
+     * @return opening direction for the popup
+     */
+    PopupOpenDirection getPopupOpenDirection();
+    /**
+     * Sets opening direction for the popup.
+     *
+     * @param direction new direction
+     */
+    void setPopupOpenDirection(PopupOpenDirection direction);
+
+    /**
+     * @return true if a click outside the popup closing the popup, otherwise - false
+     */
+    boolean isClosePopupOnOutsideClick();
+    /**
+     * If set to true, clicking on outside the popup closes it. Note that this doesn't affect clicking on the button itself.
+     *
+     * @param closePopupOnOutsideClick whether to close popup on ouside click
+     */
+    void setClosePopupOnOutsideClick(boolean closePopupOnOutsideClick);
+
+    /**
+     * Set custom inner content for the popup. Actions are ignored if a custom popup content is set.
+     *
+     * @param popupContent popup component.
+     */
+    void setPopupContent(@Nullable Component popupContent);
+    /**
+     * @return popup content component
+     */
+    @Nullable
+    Component getPopupContent();
+
+    void addPopupVisibilityListener(PopupVisibilityListener listener);
+    void removePopupVisibilityListener(PopupVisibilityListener listener);
+
+    /**
+     * Popup window visibility change listener.
+     */
+    interface PopupVisibilityListener {
+        void popupVisibilityChange(PopupVisibilityEvent popupVisibilityEvent);
+    }
+
+    /**
+     * This event is received by the PopupVisibilityListeners when the visibility of the popup changes.
+     */
+    class PopupVisibilityEvent extends EventObject {
+        public PopupVisibilityEvent(PopupButton popupButton) {
+            super(popupButton);
+        }
+
+        @Override
+        public PopupButton getSource() {
+            return (PopupButton) super.getSource();
+        }
+    }
+
+    /**
+     * Opening direction for the popup.
+     */
+    enum PopupOpenDirection {
+        BOTTOM_LEFT,
+        BOTTOM_RIGHT,
+        BOTTOM_CENTER,
+    }
 }
