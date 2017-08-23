@@ -11,3 +11,4 @@ out
 
 modules/*/test-home/
 modules/*/build/
+.idea/
